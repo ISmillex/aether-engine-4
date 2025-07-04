@@ -2,27 +2,31 @@ import { World, System } from '../ecs/index.js';
 import { Renderer } from '../renderer/index.js';
 import { ResourceManager } from '../resources/index.js';
 import { InputManager } from '../input/index.js';
+import { Scene, type SceneConfig } from './scene.js';
 
 export interface EngineConfig {
   canvas: HTMLCanvasElement;
   targetFPS?: number;
+  initialScene?: SceneConfig;
 }
 
 /**
- * Main Engine class that orchestrates all subsystems and runs the game loop.
- * This is the central OOP class that manages the hybrid ECS/OOP architecture.
+ * Enhanced Engine class with scene management and improved lifecycle.
+ * Manages multiple scenes and provides a unified game loop.
  */
 export class Engine {
-  private readonly world: World;
   private readonly renderer: Renderer;
   private readonly resourceManager: ResourceManager;
   private readonly inputManager: InputManager;
   
-  private readonly systems: System[] = [];
+  private readonly scenes = new Map<string, Scene>();
+  private currentScene: Scene | null = null;
+  
   private readonly targetFPS: number;
   private readonly targetFrameTime: number;
   
   private running = false;
+  private paused = false;
   private lastTime = 0;
   private frameId = 0;
 
@@ -35,10 +39,13 @@ export class Engine {
     this.resourceManager = new ResourceManager();
     this.inputManager = new InputManager(config.canvas);
     
-    // Initialize ECS world
-    this.world = new World();
-    
     this.setupCanvas(config.canvas);
+    
+    // Create initial scene if provided
+    if (config.initialScene) {
+      const scene = this.createScene(config.initialScene);
+      this.setCurrentScene(scene.name);
+    }
   }
 
   private setupCanvas(canvas: HTMLCanvasElement): void {
@@ -55,28 +62,69 @@ export class Engine {
     resizeObserver.observe(canvas);
   }
 
-  addSystem(system: System): void {
-    this.systems.push(system);
+  // Scene management
+  createScene(config: SceneConfig): Scene {
+    if (this.scenes.has(config.name)) {
+      throw new Error(`Scene with name '${config.name}' already exists`);
+    }
+
+    const scene = new Scene(config);
+    this.scenes.set(config.name, scene);
+    return scene;
+  }
+
+  getScene(name: string): Scene | undefined {
+    return this.scenes.get(name);
+  }
+
+  setCurrentScene(name: string): void {
+    const scene = this.scenes.get(name);
+    if (!scene) {
+      throw new Error(`Scene '${name}' not found`);
+    }
+
+    if (this.currentScene) {
+      this.currentScene.stop();
+    }
+
+    this.currentScene = scene;
     
-    // Initialize system if engine is already running
-    if (this.running && system.initialize) {
-      system.initialize(this.world);
+    if (this.running) {
+      this.currentScene.start();
     }
   }
 
-  removeSystem(systemName: string): void {
-    const index = this.systems.findIndex(system => system.name === systemName);
-    if (index !== -1) {
-      const system = this.systems[index]!;
-      if (system.cleanup) {
-        system.cleanup(this.world);
+  getCurrentScene(): Scene | null {
+    return this.currentScene;
+  }
+
+  removeScene(name: string): void {
+    const scene = this.scenes.get(name);
+    if (scene) {
+      if (this.currentScene === scene) {
+        this.currentScene = null;
       }
-      this.systems.splice(index, 1);
+      scene.dispose();
+      this.scenes.delete(name);
+    }
+  }
+
+  // Legacy system management (for backward compatibility)
+  addSystem(system: System): void {
+    if (!this.currentScene) {
+      throw new Error('No current scene. Create a scene first or use scene.addSystem()');
+    }
+    this.currentScene.addSystem(system);
+  }
+
+  removeSystem(systemName: string): void {
+    if (this.currentScene) {
+      this.currentScene.removeSystem(systemName);
     }
   }
 
   getSystem<T extends System>(systemName: string): T | undefined {
-    return this.systems.find(system => system.name === systemName) as T | undefined;
+    return this.currentScene?.getSystem<T>(systemName);
   }
 
   start(): void {
@@ -87,11 +135,9 @@ export class Engine {
     this.running = true;
     this.lastTime = performance.now();
     
-    // Initialize all systems
-    for (const system of this.systems) {
-      if (system.initialize) {
-        system.initialize(this.world);
-      }
+    // Start current scene
+    if (this.currentScene) {
+      this.currentScene.start();
     }
     
     this.gameLoop();
@@ -105,11 +151,27 @@ export class Engine {
       this.frameId = 0;
     }
     
-    // Cleanup all systems
-    for (const system of this.systems) {
-      if (system.cleanup) {
-        system.cleanup(this.world);
-      }
+    // Stop current scene
+    if (this.currentScene) {
+      this.currentScene.stop();
+    }
+  }
+
+  pause(): void {
+    if (!this.running || this.paused) return;
+    
+    this.paused = true;
+    if (this.currentScene) {
+      this.currentScene.pause();
+    }
+  }
+
+  resume(): void {
+    if (!this.running || !this.paused) return;
+    
+    this.paused = false;
+    if (this.currentScene) {
+      this.currentScene.resume();
     }
   }
 
@@ -122,9 +184,9 @@ export class Engine {
     const deltaTime = (currentTime - this.lastTime) / 1000; // Convert to seconds
     this.lastTime = currentTime;
     
-    // Update all systems
-    for (const system of this.systems) {
-      system.update(this.world, deltaTime);
+    // Update current scene
+    if (this.currentScene && !this.paused) {
+      this.currentScene.update(deltaTime);
     }
     
     // Update input manager (clears frame-specific input states)
@@ -135,7 +197,7 @@ export class Engine {
 
   // Getters for subsystems
   getWorld(): World {
-    return this.world;
+    return this.currentScene?.world ?? new World();
   }
 
   getRenderer(): Renderer {
@@ -154,11 +216,22 @@ export class Engine {
     return this.running;
   }
 
+  isPaused(): boolean {
+    return this.paused;
+  }
+
   dispose(): void {
     this.stop();
+    
+    // Dispose all scenes
+    for (const scene of this.scenes.values()) {
+      scene.dispose();
+    }
+    this.scenes.clear();
+    this.currentScene = null;
+    
     this.renderer.dispose();
     this.inputManager.dispose();
     this.resourceManager.clear();
-    this.world.clear();
   }
 }

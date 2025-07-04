@@ -53,6 +53,44 @@ export class Vector2 {
   toArray(): [number, number] {
     return [this.x, this.y];
   }
+
+  // Fluent API methods
+  withX(x: number): Vector2 {
+    return new Vector2(x, this.y);
+  }
+
+  withY(y: number): Vector2 {
+    return new Vector2(this.x, y);
+  }
+
+  // Utility methods
+  distanceTo(other: Vector2): number {
+    return this.subtract(other).length();
+  }
+
+  angleTo(other: Vector2): number {
+    return Math.atan2(other.y - this.y, other.x - this.x);
+  }
+
+  rotate(angle: number): Vector2 {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    return new Vector2(
+      this.x * cos - this.y * sin,
+      this.x * sin + this.y * cos
+    );
+  }
+
+  lerp(other: Vector2, t: number): Vector2 {
+    return this.add(other.subtract(this).scale(t));
+  }
+
+  clamp(min: Vector2, max: Vector2): Vector2 {
+    return new Vector2(
+      Math.max(min.x, Math.min(max.x, this.x)),
+      Math.max(min.y, Math.min(max.y, this.y))
+    );
+  }
 }
 
 export class Vector3 {
@@ -129,5 +167,40 @@ export class Vector3 {
 
   toArray(): [number, number, number] {
     return [this.x, this.y, this.z];
+  }
+
+  // Fluent API methods
+  withX(x: number): Vector3 {
+    return new Vector3(x, this.y, this.z);
+  }
+
+  withY(y: number): Vector3 {
+    return new Vector3(this.x, y, this.z);
+  }
+
+  withZ(z: number): Vector3 {
+    return new Vector3(this.x, this.y, z);
+  }
+
+  // Utility methods
+  distanceTo(other: Vector3): number {
+    return this.subtract(other).length();
+  }
+
+  lerp(other: Vector3, t: number): Vector3 {
+    return this.add(other.subtract(this).scale(t));
+  }
+
+  clamp(min: Vector3, max: Vector3): Vector3 {
+    return new Vector3(
+      Math.max(min.x, Math.min(max.x, this.x)),
+      Math.max(min.y, Math.min(max.y, this.y)),
+      Math.max(min.z, Math.min(max.z, this.z))
+    );
+  }
+
+  // 2D projection (ignoring Z)
+  toVector2(): Vector2 {
+    return new Vector2(this.x, this.y);
   }
 }

@@ -5,13 +5,19 @@ import { Transform, Velocity } from '../components/index.js';
 import { Rotor } from '../math/index.js';
 
 /**
- * Movement system that applies velocity to transform components.
+ * Enhanced movement system that applies velocity to transform components.
+ * Uses immutable component updates for better performance and predictability.
  */
 export class MovementSystem extends System {
   readonly name = 'MovementSystem';
+  readonly priority = 100; // High priority for movement
 
   update(world: World, deltaTime: number): void {
-    const entities = world.getEntitiesWithComponents(Transform, Velocity);
+    // Use the new query builder for better performance
+    const entities = world.query()
+      .with(Transform)
+      .with(Velocity)
+      .execute();
     
     // Performance optimization: Batch component updates
     const updates: Array<{ entity: Entity; transform: Transform }> = [];

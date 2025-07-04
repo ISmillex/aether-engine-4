@@ -15,6 +15,23 @@ export class Transform implements Component {
     public readonly scale: Vector3 = Vector3.one()
   ) {}
 
+  // Factory methods for common transforms
+  static at(x: number, y: number, z: number = 0): Transform {
+    return new Transform(new Vector3(x, y, z));
+  }
+
+  static withPosition(position: Vector3): Transform {
+    return new Transform(position);
+  }
+
+  static withRotation(rotation: Rotor): Transform {
+    return new Transform(Vector3.zero(), rotation);
+  }
+
+  static withScale(scale: Vector3): Transform {
+    return new Transform(Vector3.zero(), Rotor.identity(), scale);
+  }
+
   translate(offset: Vector3): Transform {
     return new Transform(
       this.position.add(offset),

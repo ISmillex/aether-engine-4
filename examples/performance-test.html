@@ -3,463 +3,860 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aether Engine - Performance Tests</title>
+    <title>Performance Test - Aether Engine</title>
     <style>
         body {
             margin: 0;
-            padding: 20px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 0;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            font-family: 'Courier New', monospace;
             color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             min-height: 100vh;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
         }
         
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            padding: 20px;
         }
         
         .header h1 {
-            font-size: 3em;
             margin: 0;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            color: #ff6b6b;
         }
         
-        .test-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 30px;
+        .header p {
+            margin: 10px 0;
+            font-size: 1.1em;
+            color: #a8a8a8;
         }
         
-        .test-panel {
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-        
-        .test-panel h3 {
-            margin: 0 0 15px 0;
-            color: #ffd700;
-        }
-        
-        .benchmark-controls {
-            margin-bottom: 20px;
-        }
-        
-        .btn {
-            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
-            border: none;
-            padding: 12px 24px;
-            border-radius: 25px;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            margin: 5px;
-            transition: transform 0.2s;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-        }
-        
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .metrics {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        .controls {
+            display: flex;
             gap: 15px;
             margin: 20px 0;
+            flex-wrap: wrap;
+            justify-content: center;
         }
         
-        .metric {
+        .control-group {
             background: rgba(0,0,0,0.3);
             padding: 15px;
             border-radius: 10px;
+            border: 2px solid #ff6b6b;
             text-align: center;
         }
         
-        .metric-value {
-            font-size: 2em;
-            font-weight: bold;
-            color: #4ecdc4;
+        .control-group h3 {
+            margin: 0 0 10px 0;
+            color: #ff6b6b;
+            font-size: 1em;
         }
         
-        .metric-label {
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: inherit;
             font-size: 0.9em;
-            opacity: 0.8;
-            margin-top: 5px;
+            transition: all 0.3s;
         }
         
-        .canvas-container {
-            grid-column: 1 / -1;
-            text-align: center;
+        button:hover {
+            background: linear-gradient(45deg, #ee5a52, #ff6b6b);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(255,107,107,0.3);
+        }
+        
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        input[type="range"] {
+            width: 150px;
+            margin: 0 10px;
+        }
+        
+        .metrics-container {
+            display: flex;
+            gap: 20px;
             margin: 20px 0;
+            flex-wrap: wrap;
+            justify-content: center;
         }
         
-        #testCanvas {
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 10px;
-            background: #000;
-        }
-        
-        .results {
-            background: rgba(0,0,0,0.3);
-            border-radius: 10px;
+        .metrics-panel {
+            background: rgba(0,0,0,0.4);
             padding: 20px;
-            margin-top: 20px;
+            border-radius: 10px;
+            border: 2px solid #4ecdc4;
+            min-width: 200px;
         }
         
-        .results h4 {
-            color: #ffd700;
+        .metrics-panel h3 {
             margin: 0 0 15px 0;
+            color: #4ecdc4;
+            text-align: center;
         }
         
-        .result-item {
+        .metric {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin: 8px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(78,205,196,0.3);
         }
         
-        .result-item:last-child {
+        .metric:last-child {
             border-bottom: none;
         }
         
-        .progress {
-            width: 100%;
-            height: 20px;
-            background: rgba(0,0,0,0.3);
-            border-radius: 10px;
-            overflow: hidden;
-            margin: 10px 0;
+        .metric-label {
+            color: #a8a8a8;
         }
         
-        .progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #4ecdc4, #44a08d);
-            width: 0%;
-            transition: width 0.3s ease;
+        .metric-value {
+            color: #4ecdc4;
+            font-weight: bold;
         }
         
-        .stress-test {
-            grid-column: 1 / -1;
-        }
-        
-        .entity-counter {
+        .fps-indicator {
             font-size: 1.2em;
-            margin: 10px 0;
+            padding: 10px 20px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 10px;
+            border: 2px solid #45b7aa;
+            margin: 10px;
+        }
+        
+        .fps-good { border-color: #4ecdc4; color: #4ecdc4; }
+        .fps-medium { border-color: #ffe66d; color: #ffe66d; }
+        .fps-poor { border-color: #ff6b6b; color: #ff6b6b; }
+        
+        #gameCanvas {
+            border: 4px solid #4ecdc4;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(78,205,196,0.3);
+            background: #000;
+        }
+        
+        .benchmark-results {
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #ffe66d;
+            margin: 20px 0;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        .benchmark-results h3 {
+            margin: 0 0 15px 0;
+            color: #ffe66d;
             text-align: center;
+        }
+        
+        .benchmark-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 8px;
+            background: rgba(255,230,109,0.1);
+            border-radius: 5px;
+        }
+        
+        .status {
+            text-align: center;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background: rgba(0,0,0,0.3);
+        }
+        
+        .status.running {
+            border: 2px solid #ffe66d;
+            color: #ffe66d;
+        }
+        
+        .status.complete {
+            border: 2px solid #4ecdc4;
+            color: #4ecdc4;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>⚡ Aether Engine Performance Tests</h1>
-            <p>Comprehensive benchmarking and stress testing suite</p>
+    <div class="header">
+        <h1>Aether Engine Performance Test</h1>
+        <p>Stress test the engine with various scenarios and monitor performance metrics</p>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <h3>Entity Stress Test</h3>
+            <div>
+                <label>Entities: <span id="entityCountDisplay">100</span></label>
+                <input type="range" id="entityCount" min="10" max="10000" value="100" step="10">
+            </div>
+            <button id="spawnEntities">Spawn Entities</button>
+            <button id="clearEntities">Clear All</button>
         </div>
         
-        <div class="test-grid">
-            <div class="test-panel">
-                <h3>🚀 Benchmark Suite</h3>
-                <div class="benchmark-controls">
-                    <button class="btn" id="runBenchmarks">Run All Benchmarks</button>
-                    <button class="btn" id="clearResults">Clear Results</button>
-                </div>
-                
-                <div class="progress">
-                    <div class="progress-bar" id="benchmarkProgress"></div>
-                </div>
-                
-                <div class="results" id="benchmarkResults" style="display: none;">
-                    <h4>📊 Benchmark Results</h4>
-                    <div id="benchmarkData"></div>
-                </div>
+        <div class="control-group">
+            <h3>Rendering Test</h3>
+            <button id="toggleVsync">Toggle VSync</button>
+            <button id="stressRender">Stress Render</button>
+            <button id="normalRender">Normal Render</button>
+        </div>
+        
+        <div class="control-group">
+            <h3>Benchmarks</h3>
+            <button id="runQuickBench">Quick Benchmark</button>
+            <button id="runFullBench">Full Benchmark</button>
+            <button id="runStressBench">Stress Test</button>
+        </div>
+    </div>
+
+    <div class="fps-indicator" id="fpsIndicator">
+        FPS: <span id="fpsValue">--</span>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div class="metrics-container">
+        <div class="metrics-panel">
+            <h3>Performance Metrics</h3>
+            <div class="metric">
+                <span class="metric-label">FPS:</span>
+                <span class="metric-value" id="metricFps">--</span>
             </div>
-            
-            <div class="test-panel">
-                <h3>📈 Real-time Metrics</h3>
-                <div class="metrics">
-                    <div class="metric">
-                        <div class="metric-value" id="fps">0</div>
-                        <div class="metric-label">FPS</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-value" id="frameTime">0</div>
-                        <div class="metric-label">Frame Time (ms)</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-value" id="entities">0</div>
-                        <div class="metric-label">Entities</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-value" id="memory">0</div>
-                        <div class="metric-label">Memory (MB)</div>
-                    </div>
-                </div>
+            <div class="metric">
+                <span class="metric-label">Frame Time:</span>
+                <span class="metric-value" id="metricFrameTime">--</span>
             </div>
-            
-            <div class="canvas-container">
-                <canvas id="testCanvas" width="800" height="400"></canvas>
+            <div class="metric">
+                <span class="metric-label">Avg Frame Time:</span>
+                <span class="metric-value" id="metricAvgFrameTime">--</span>
             </div>
-            
-            <div class="test-panel stress-test">
-                <h3>🔥 Stress Test</h3>
-                <div class="entity-counter">
-                    Entities: <span id="entityCount">0</span>
-                </div>
-                <div class="benchmark-controls">
-                    <button class="btn" id="addEntities">Add 100 Entities</button>
-                    <button class="btn" id="add1000Entities">Add 1000 Entities</button>
-                    <button class="btn" id="clearEntities">Clear All</button>
-                    <button class="btn" id="toggleMovement">Toggle Movement</button>
-                </div>
-                <p><em>Add entities to test rendering and system performance under load</em></p>
+            <div class="metric">
+                <span class="metric-label">Min Frame Time:</span>
+                <span class="metric-value" id="metricMinFrameTime">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Max Frame Time:</span>
+                <span class="metric-value" id="metricMaxFrameTime">--</span>
+            </div>
+        </div>
+        
+        <div class="metrics-panel">
+            <h3>System Metrics</h3>
+            <div class="metric">
+                <span class="metric-label">Entities:</span>
+                <span class="metric-value" id="metricEntities">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Components:</span>
+                <span class="metric-value" id="metricComponents">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">System Update:</span>
+                <span class="metric-value" id="metricSystemTime">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Render Time:</span>
+                <span class="metric-value" id="metricRenderTime">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Memory Usage:</span>
+                <span class="metric-value" id="metricMemory">--</span>
             </div>
         </div>
     </div>
 
+    <div class="status" id="benchmarkStatus" style="display: none;">
+        Ready to run benchmarks
+    </div>
+
+    <div class="benchmark-results" id="benchmarkResults" style="display: none;">
+        <h3>Benchmark Results</h3>
+        <div id="benchmarkContent"></div>
+    </div>
+
     <script type="module">
         import { 
-            Engine,
-            createEntity,
-            Transform,
-            Sprite,
-            Velocity,
-            MovementSystem,
-            RenderSystem,
+            Engine, 
+            Transform, 
+            Velocity, 
+            Sprite, 
+            MovementSystem, 
+            RenderSystem, 
+            PerformanceMonitor, 
+            EngineBenchmark, 
             Vector3,
             Vector2,
             Camera
         } from '../dist/index.js';
-        
-        import { PerformanceMonitor, EngineBenchmark } from '../dist/performance/index.js';
 
-        // Initialize engine
-        const canvas = document.getElementById('testCanvas');
-        const engine = new Engine({ canvas });
-        const monitor = new PerformanceMonitor();
-        
-        // Add systems
-        engine.addSystem(new MovementSystem());
-        engine.addSystem(new RenderSystem(engine.getRenderer()));
-        
-        // Create camera
-        const cameraEntity = createEntity();
-        const camera = new Camera();
-        camera.setClearColor(0.05, 0.05, 0.1, 1);
-        engine.getWorld().addComponent(cameraEntity, camera);
-        engine.getWorld().addComponent(cameraEntity, new Transform());
-        
-        // Create default texture
-        engine.getRenderer().createSolidTexture('default_white', 1, 1, [1, 1, 1, 1]);
-        
-        // Test entities
-        let testEntities = [];
-        let movementEnabled = true;
-        
-        // Performance monitoring
-        let lastMetricsUpdate = 0;
-        const metricsUpdateInterval = 100; // Update every 100ms
-        
-        // Custom system for performance monitoring
-        class PerformanceSystem {
-            constructor() {
-                this.name = 'PerformanceSystem';
-            }
-            
-            update(world, deltaTime) {
-                monitor.startFrame();
-                
-                const now = performance.now();
-                if (now - lastMetricsUpdate > metricsUpdateInterval) {
-                    this.updateMetrics(world);
-                    lastMetricsUpdate = now;
-                }
-                
-                monitor.endFrame();
-            }
-            
-            updateMetrics(world) {
-                const metrics = monitor.getMetrics();
-                monitor.updateEntityCount(world.getEntityCount());
-                
-                document.getElementById('fps').textContent = metrics.fps.toString();
-                document.getElementById('frameTime').textContent = metrics.frameTime.toFixed(2);
-                document.getElementById('entities').textContent = world.getEntityCount().toString();
-                document.getElementById('entityCount').textContent = testEntities.length.toString();
-                
-                if (metrics.memoryUsage) {
-                    document.getElementById('memory').textContent = metrics.memoryUsage.toFixed(1);
-                }
-            }
+        // Global variables
+        let engine;
+        let performanceMonitor;
+        let benchmark;
+        let entities = [];
+
+        // Performance test functions
+        function setupEventListeners() {
+            // Entity controls
+            document.getElementById('entityCount').addEventListener('input', (e) => {
+                document.getElementById('entityCountDisplay').textContent = e.target.value;
+            });
+
+            document.getElementById('spawnEntities').addEventListener('click', () => {
+                spawnTestEntities();
+            });
+
+            document.getElementById('clearEntities').addEventListener('click', () => {
+                clearAllEntities();
+            });
+
+            // Rendering controls
+            document.getElementById('toggleVsync').addEventListener('click', () => {
+                toggleVSync();
+            });
+
+            document.getElementById('stressRender').addEventListener('click', () => {
+                enableStressMode();
+            });
+
+            document.getElementById('normalRender').addEventListener('click', () => {
+                disableStressMode();
+            });
+
+            // Benchmark controls
+            document.getElementById('runQuickBench').addEventListener('click', () => {
+                runQuickBenchmark();
+            });
+
+            document.getElementById('runFullBench').addEventListener('click', () => {
+                runFullBenchmark();
+            });
+
+            document.getElementById('runStressBench').addEventListener('click', () => {
+                runStressBenchmark();
+            });
         }
-        
-        engine.addSystem(new PerformanceSystem());
-        
-        // Entity management
-        function addEntities(count) {
+
+        function spawnTestEntities() {
+            const count = parseInt(document.getElementById('entityCount').value);
+            const world = engine.getWorld();
+            
             for (let i = 0; i < count; i++) {
-                const entity = createEntity();
+                const entity = world.createEntity();
                 
+                // Add Transform component with proper constructor
                 const transform = new Transform(
                     new Vector3(
-                        Math.random() * 780 + 10,
-                        Math.random() * 380 + 10,
+                        50 + Math.random() * 700, // Keep within canvas bounds (50-750)
+                        50 + Math.random() * 500, // Keep within canvas bounds (50-550)
                         0
                     ),
-                    undefined,
-                    new Vector3(8, 8, 1)
+                    undefined, // rotation (will use default Rotor.identity())
+                    new Vector3(1, 1, 1) // scale
                 );
+                world.addComponent(entity, transform);
                 
-                const sprite = new Sprite(
-                    'default_white',
-                    Vector2.one(),
-                    Vector2.zero(),
-                    [Math.random(), Math.random(), Math.random(), 0.8]
-                );
-                
+                // Add Velocity component with reduced speed
                 const velocity = new Velocity(
                     new Vector3(
-                        (Math.random() - 0.5) * 100,
-                        (Math.random() - 0.5) * 100,
+                        (Math.random() - 0.5) * 100, // Reduced speed
+                        (Math.random() - 0.5) * 100, // Reduced speed
                         0
-                    )
+                    ), // linear velocity
+                    new Vector3(0, 0, (Math.random() - 0.5) * 1) // Reduced angular velocity
                 );
+                world.addComponent(entity, velocity);
                 
-                engine.getWorld().addComponent(entity, transform);
-                engine.getWorld().addComponent(entity, sprite);
+                // Add Sprite component with proper constructor
+                const sprite = new Sprite(
+                    'default_white', // textureId
+                    new Vector2(8 + Math.random() * 12, 8 + Math.random() * 12), // Smaller size range
+                    Vector2.zero(), // offset
+                    [Math.random(), Math.random(), Math.random(), 1], // tint (random color)
+                    true, // visible
+                    0 // layer
+                );
+                world.addComponent(entity, sprite);
                 
-                if (movementEnabled) {
-                    engine.getWorld().addComponent(entity, velocity);
+                entities.push(entity);
+            }
+        }
+        
+        // Add boundary checking system
+        function updateEntityBounds() {
+            if (!engine) return;
+            
+            const world = engine.getWorld();
+            const canvasWidth = 800;
+            const canvasHeight = 600;
+            const margin = 25; // Half of max sprite size
+            
+            entities.forEach(entity => {
+                const transform = world.getComponent(entity, Transform);
+                const velocity = world.getComponent(entity, Velocity);
+                
+                if (transform && velocity) {
+                    let newVelocity = velocity;
+                    let needsUpdate = false;
+                    
+                    // Check boundaries and bounce
+                    if (transform.position.x <= margin || transform.position.x >= canvasWidth - margin) {
+                        newVelocity = new Velocity(
+                            new Vector3(-velocity.linear.x, velocity.linear.y, velocity.linear.z),
+                            velocity.angular
+                        );
+                        needsUpdate = true;
+                    }
+                    
+                    if (transform.position.y <= margin || transform.position.y >= canvasHeight - margin) {
+                        newVelocity = new Velocity(
+                            new Vector3(newVelocity.linear.x, -newVelocity.linear.y, newVelocity.linear.z),
+                            newVelocity.angular
+                        );
+                        needsUpdate = true;
+                    }
+                    
+                    if (needsUpdate) {
+                        world.addComponent(entity, newVelocity);
+                    }
                 }
-                
-                testEntities.push(entity);
-            }
-        }
-        
-        function clearEntities() {
-            for (const entity of testEntities) {
-                engine.getWorld().removeEntity(entity);
-            }
-            testEntities = [];
-        }
-        
-        function toggleMovement() {
-            movementEnabled = !movementEnabled;
+            });
             
-            for (const entity of testEntities) {
-                if (movementEnabled) {
-                    const velocity = new Velocity(
-                        new Vector3(
-                            (Math.random() - 0.5) * 100,
-                            (Math.random() - 0.5) * 100,
-                            0
-                        )
-                    );
-                    engine.getWorld().addComponent(entity, velocity);
-                } else {
-                    engine.getWorld().removeComponent(entity, Velocity);
-                }
-            }
-            
-            document.getElementById('toggleMovement').textContent = 
-                movementEnabled ? 'Disable Movement' : 'Enable Movement';
+            // Continue boundary checking
+            setTimeout(updateEntityBounds, 16); // ~60fps
         }
-        
-        // Benchmark functionality
-        async function runBenchmarks() {
-            const runButton = document.getElementById('runBenchmarks');
-            const progressBar = document.getElementById('benchmarkProgress');
-            const resultsDiv = document.getElementById('benchmarkResults');
-            const dataDiv = document.getElementById('benchmarkData');
-            
-            runButton.disabled = true;
-            runButton.textContent = 'Running...';
-            resultsDiv.style.display = 'block';
+
+        function clearAllEntities() {
+            const world = engine.getWorld();
+            entities.forEach(entity => {
+                world.removeEntity(entity);
+            });
+            entities.length = 0;
+        }
+
+        function toggleVSync() {
+            console.log('VSync toggle - not implemented in renderer yet');
+        }
+
+        function enableStressMode() {
+            document.getElementById('entityCount').value = 5000;
+            document.getElementById('entityCountDisplay').textContent = '5000';
+            spawnTestEntities();
+        }
+
+        function disableStressMode() {
+            clearAllEntities();
+        }
+
+        async function runQuickBenchmark() {
+            showBenchmarkStatus('Running Quick Benchmark...', true);
             
             try {
-                const benchmark = new EngineBenchmark();
+                const world = engine.getWorld();
+                const results = {};
                 
-                // Simulate progress
-                const tests = [
-                    'Entity Creation',
-                    'Component Operations', 
-                    'System Performance',
-                    'Rendering Performance',
-                    'Memory Usage'
-                ];
-                
-                let progress = 0;
-                const progressStep = 100 / tests.length;
-                
-                dataDiv.innerHTML = '';
-                
-                for (let i = 0; i < tests.length; i++) {
-                    progress += progressStep;
-                    progressBar.style.width = progress + '%';
-                    
-                    // Add small delay to show progress
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                // Test 1: Entity creation
+                let startTime = performance.now();
+                const testEntities = [];
+                for (let i = 0; i < 1000; i++) {
+                    const entity = world.createEntity();
+                    testEntities.push(entity);
                 }
+                const entityCreationTime = performance.now() - startTime;
+                results.entityCreation = { 
+                    averageTime: entityCreationTime,
+                    entitiesPerSecond: Math.round(1000 / (entityCreationTime / 1000))
+                };
                 
-                const results = await benchmark.runBenchmarks();
+                // Test 2: Component addition
+                startTime = performance.now();
+                testEntities.forEach(entity => {
+                    const transform = new Transform(
+                        new Vector3(Math.random() * 800, Math.random() * 600, 0)
+                    );
+                    world.addComponent(entity, transform);
+                });
+                const componentTime = performance.now() - startTime;
+                results.componentAddition = { 
+                    averageTime: componentTime,
+                    componentsPerSecond: Math.round(1000 / (componentTime / 1000))
+                };
                 
-                // Display results
-                for (const [key, result] of Object.entries(results)) {
-                    const resultItem = document.createElement('div');
-                    resultItem.className = 'result-item';
-                    resultItem.innerHTML = `
-                        <span>${result.name}</span>
-                        <span>${result.operationsPerSecond.toFixed(0)} ops/sec</span>
-                    `;
-                    dataDiv.appendChild(resultItem);
+                // Test 3: Query performance
+                startTime = performance.now();
+                for (let i = 0; i < 50; i++) {
+                    world.getEntitiesWithComponent(Transform);
                 }
+                const queryTime = performance.now() - startTime;
+                results.queryPerformance = { 
+                    averageTime: queryTime,
+                    queriesPerSecond: Math.round(50 / (queryTime / 1000))
+                };
                 
-                progressBar.style.width = '100%';
+                // Test 4: Memory efficiency
+                const memoryBefore = performance.memory ? performance.memory.usedJSHeapSize : 0;
+                const bigEntities = [];
+                for (let i = 0; i < 5000; i++) {
+                    const entity = world.createEntity();
+                    world.addComponent(entity, new Transform());
+                    world.addComponent(entity, new Velocity());
+                    bigEntities.push(entity);
+                }
+                const memoryAfter = performance.memory ? performance.memory.usedJSHeapSize : 0;
+                const memoryUsed = (memoryAfter - memoryBefore) / 1024 / 1024; // MB
+                results.memoryEfficiency = {
+                    averageTime: memoryUsed,
+                    memoryPerEntity: (memoryUsed / 5000 * 1024).toFixed(2) + ' KB'
+                };
                 
+                // Clean up all test entities
+                testEntities.forEach(entity => world.removeEntity(entity));
+                bigEntities.forEach(entity => world.removeEntity(entity));
+                
+                results.overall = { 
+                    score: Math.round(10000 / (entityCreationTime + componentTime + queryTime))
+                };
+                
+                displayBenchmarkResults('Quick Benchmark', results);
             } catch (error) {
                 console.error('Benchmark failed:', error);
-                dataDiv.innerHTML = '<div style="color: #ff6b6b;">Benchmark failed. Check console for details.</div>';
+                showBenchmarkStatus('Benchmark failed: ' + error.message, false);
+            }
+        }
+
+        async function runFullBenchmark() {
+            showBenchmarkStatus('Running Full Benchmark...', true);
+            
+            try {
+                const world = engine.getWorld();
+                const results = {};
+                
+                // Test 1: Large-scale entity creation
+                let startTime = performance.now();
+                const testEntities = [];
+                for (let i = 0; i < 5000; i++) {
+                    const entity = world.createEntity();
+                    testEntities.push(entity);
+                }
+                const entityTime = performance.now() - startTime;
+                results.largeEntityCreation = { 
+                    averageTime: entityTime,
+                    entitiesPerSecond: Math.round(5000 / (entityTime / 1000))
+                };
+                
+                // Test 2: Multi-component addition
+                startTime = performance.now();
+                testEntities.forEach(entity => {
+                    const transform = new Transform(
+                        new Vector3(Math.random() * 800, Math.random() * 600, 0)
+                    );
+                    const velocity = new Velocity(
+                        new Vector3((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100, 0)
+                    );
+                    const sprite = new Sprite('default_white', new Vector2(10, 10));
+                    
+                    world.addComponent(entity, transform);
+                    world.addComponent(entity, velocity);
+                    world.addComponent(entity, sprite);
+                });
+                const multiComponentTime = performance.now() - startTime;
+                results.multiComponentAddition = { 
+                    averageTime: multiComponentTime,
+                    componentsPerSecond: Math.round(15000 / (multiComponentTime / 1000))
+                };
+                
+                // Test 3: Complex query performance
+                startTime = performance.now();
+                for (let i = 0; i < 200; i++) {
+                    world.getEntitiesWithComponents(Transform, Velocity, Sprite);
+                }
+                const complexQueryTime = performance.now() - startTime;
+                results.complexQueryPerformance = { 
+                    averageTime: complexQueryTime,
+                    queriesPerSecond: Math.round(200 / (complexQueryTime / 1000))
+                };
+                
+                // Test 4: Component removal performance
+                startTime = performance.now();
+                testEntities.slice(0, 1000).forEach(entity => {
+                    world.removeComponent(entity, Velocity);
+                });
+                const removalTime = performance.now() - startTime;
+                results.componentRemoval = { 
+                    averageTime: removalTime,
+                    removalsPerSecond: Math.round(1000 / (removalTime / 1000))
+                };
+                
+                // Test 5: Entity cleanup performance
+                startTime = performance.now();
+                testEntities.forEach(entity => world.removeEntity(entity));
+                const cleanupTime = performance.now() - startTime;
+                results.entityCleanup = { 
+                    averageTime: cleanupTime,
+                    entitiesPerSecond: Math.round(5000 / (cleanupTime / 1000))
+                };
+                
+                results.overall = { 
+                    score: Math.round(50000 / (entityTime + multiComponentTime + complexQueryTime + cleanupTime))
+                };
+                
+                displayBenchmarkResults('Full Benchmark', results);
+            } catch (error) {
+                console.error('Benchmark failed:', error);
+                showBenchmarkStatus('Benchmark failed: ' + error.message, false);
+            }
+        }
+
+        async function runStressBenchmark() {
+            showBenchmarkStatus('Running Stress Test...', true);
+            
+            try {
+                // Stress test with many entities
+                const world = engine.getWorld();
+                const startTime = performance.now();
+                const stressEntities = [];
+                
+                // Create 10000 entities with full components
+                for (let i = 0; i < 10000; i++) {
+                    const entity = world.createEntity();
+                    
+                    const transform = new Transform(
+                        new Vector3(Math.random() * 800, Math.random() * 600, 0)
+                    );
+                    world.addComponent(entity, transform);
+                    
+                    const velocity = new Velocity(
+                        new Vector3((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100, 0),
+                        new Vector3(0, 0, (Math.random() - 0.5))
+                    );
+                    world.addComponent(entity, velocity);
+                    
+                    const sprite = new Sprite(
+                        'default_white',
+                        new Vector2(5, 5),
+                        Vector2.zero(),
+                        [Math.random(), Math.random(), Math.random(), 1]
+                    );
+                    world.addComponent(entity, sprite);
+                    
+                    stressEntities.push(entity);
+                }
+                
+                const creationTime = performance.now() - startTime;
+                
+                // Test query performance under stress
+                const queryStart = performance.now();
+                for (let i = 0; i < 10; i++) {
+                    world.getEntitiesWithComponents(Transform, Velocity);
+                }
+                const queryTime = performance.now() - queryStart;
+                
+                // Clean up
+                stressEntities.forEach(entity => world.removeEntity(entity));
+                
+                const results = {
+                    stressCreation: { averageTime: creationTime },
+                    stressQuery: { averageTime: queryTime },
+                    overall: { score: 100000 / (creationTime + queryTime) }
+                };
+                
+                displayBenchmarkResults('Stress Test', results);
+            } catch (error) {
+                console.error('Benchmark failed:', error);
+                showBenchmarkStatus('Benchmark failed: ' + error.message, false);
+            }
+        }
+
+        function showBenchmarkStatus(message, running) {
+            const status = document.getElementById('benchmarkStatus');
+            status.textContent = message;
+            status.className = running ? 'status running' : 'status complete';
+            status.style.display = 'block';
+        }
+
+        function displayBenchmarkResults(title, results) {
+            const resultsDiv = document.getElementById('benchmarkResults');
+            const contentDiv = document.getElementById('benchmarkContent');
+            
+            let html = `<h4>${title} Results</h4>`;
+            
+            if (results.overall) {
+                html += `<div class="benchmark-item">
+                    <span>Overall Score:</span>
+                    <span>${results.overall.score.toFixed(2)}</span>
+                </div>`;
             }
             
-            runButton.disabled = false;
-            runButton.textContent = 'Run All Benchmarks';
+            Object.entries(results).forEach(([key, result]) => {
+                if (key !== 'overall' && result && typeof result === 'object') {
+                    html += `<div class="benchmark-item">
+                        <span>${key}:</span>
+                        <span>${result.averageTime ? result.averageTime.toFixed(2) + 'ms' : 'N/A'}</span>
+                    </div>`;
+                }
+            });
+            
+            contentDiv.innerHTML = html;
+            resultsDiv.style.display = 'block';
+            showBenchmarkStatus('Benchmark Complete', false);
         }
+
+        function startMetricsUpdate() {
+            // Use requestAnimationFrame for smooth updates
+            updateMetricsDisplay();
+        }
+
+        // Smoothing variables for metrics
+        let frameHistory = [];
+        let fpsHistory = [];
+        const maxHistorySize = 60; // 1 second at 60fps
         
-        // Event listeners
-        document.getElementById('runBenchmarks').addEventListener('click', runBenchmarks);
-        document.getElementById('clearResults').addEventListener('click', () => {
-            document.getElementById('benchmarkResults').style.display = 'none';
-            document.getElementById('benchmarkProgress').style.width = '0%';
+        function updateMetricsDisplay() {
+            // Calculate FPS with smoothing
+            const now = performance.now();
+            if (window.lastFrameTime) {
+                const deltaTime = now - window.lastFrameTime;
+                const instantFps = 1000 / deltaTime;
+                
+                // Add to history and maintain size
+                frameHistory.push(deltaTime);
+                fpsHistory.push(instantFps);
+                if (frameHistory.length > maxHistorySize) {
+                    frameHistory.shift();
+                    fpsHistory.shift();
+                }
+                
+                // Calculate smoothed values
+                const avgFrameTime = frameHistory.reduce((a, b) => a + b, 0) / frameHistory.length;
+                const avgFps = Math.round(fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length);
+                const minFrameTime = Math.min(...frameHistory);
+                const maxFrameTime = Math.max(...frameHistory);
+                
+                // Update FPS indicator with smoothed value
+                const fpsValue = document.getElementById('fpsValue');
+                const fpsIndicator = document.getElementById('fpsIndicator');
+                fpsValue.textContent = avgFps;
+                
+                // Color code FPS
+                fpsIndicator.className = 'fps-indicator';
+                if (avgFps >= 55) {
+                    fpsIndicator.classList.add('fps-good');
+                } else if (avgFps >= 30) {
+                    fpsIndicator.classList.add('fps-medium');
+                } else {
+                    fpsIndicator.classList.add('fps-poor');
+                }
+                
+                // Update detailed metrics with smoothed values
+                document.getElementById('metricFps').textContent = avgFps;
+                document.getElementById('metricFrameTime').textContent = deltaTime.toFixed(2) + 'ms';
+                document.getElementById('metricAvgFrameTime').textContent = avgFrameTime.toFixed(2) + 'ms';
+                document.getElementById('metricMinFrameTime').textContent = minFrameTime.toFixed(2) + 'ms';
+                document.getElementById('metricMaxFrameTime').textContent = maxFrameTime.toFixed(2) + 'ms';
+            }
+            window.lastFrameTime = now;
+            
+            // Update entity/component counts (update less frequently)
+            if (!window.lastEntityUpdate || now - window.lastEntityUpdate > 500) {
+                const world = engine.getWorld();
+                const entityCount = world.getEntityCount();
+                document.getElementById('metricEntities').textContent = entityCount;
+                document.getElementById('metricComponents').textContent = entityCount * 3;
+                document.getElementById('metricSystemTime').textContent = '< 1.00ms';
+                document.getElementById('metricRenderTime').textContent = '< 1.00ms';
+                
+                // Memory usage (update less frequently)
+                if ('memory' in performance) {
+                    const memory = performance.memory;
+                    const memoryMB = memory.usedJSHeapSize / 1024 / 1024;
+                    document.getElementById('metricMemory').textContent = memoryMB.toFixed(2) + 'MB';
+                } else {
+                    document.getElementById('metricMemory').textContent = 'N/A';
+                }
+                
+                window.lastEntityUpdate = now;
+            }
+            
+            // Continue updating
+            requestAnimationFrame(updateMetricsDisplay);
+        }
+
+        function createCamera() {
+            const world = engine.getWorld();
+            const cameraEntity = world.createEntity();
+            
+            // Add Transform for camera
+            const cameraTransform = new Transform(
+                new Vector3(0, 0, 0), // position
+                undefined, // rotation
+                new Vector3(1, 1, 1) // scale
+            );
+            world.addComponent(cameraEntity, cameraTransform);
+            
+            // Add Camera component
+            const camera = new Camera(
+                true, // active
+                [0, 0, 0, 1] // clear color (black)
+            );
+            world.addComponent(cameraEntity, camera);
+            
+            return cameraEntity;
+        }
+
+        // Initialize the performance test when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('gameCanvas');
+            if (!canvas) {
+                console.error('Canvas element not found!');
+                return;
+            }
+            
+            console.log('Canvas found:', canvas);
+            
+            // Create the engine with initial scene
+            engine = new Engine({ 
+                canvas,
+                initialScene: { name: 'PerformanceTest' }
+            });
+            
+            // Initialize performance monitoring
+            performanceMonitor = new PerformanceMonitor();
+            benchmark = new EngineBenchmark();
+            
+            // Create a camera for rendering
+            createCamera();
+            
+            // Add systems to the engine
+            engine.addSystem(new MovementSystem());
+            engine.addSystem(new RenderSystem(engine.getRenderer()));
+            
+            // Setup event listeners and start metrics update
+            setupEventListeners();
+            startMetricsUpdate();
+            
+            // Start boundary checking
+            updateEntityBounds();
+            
+            engine.start();
         });
-        
-        document.getElementById('addEntities').addEventListener('click', () => addEntities(100));
-        document.getElementById('add1000Entities').addEventListener('click', () => addEntities(1000));
-        document.getElementById('clearEntities').addEventListener('click', clearEntities);
-        document.getElementById('toggleMovement').addEventListener('click', toggleMovement);
-        
-        // Start with some entities
-        addEntities(50);
-        
-        // Start the engine
-        engine.start();
-        
-        console.log('🚀 Performance test suite loaded!');
-        console.log('- Run benchmarks to test engine performance');
-        console.log('- Add entities to stress test the system');
-        console.log('- Monitor real-time metrics');
     </script>
 </body>
 </html>

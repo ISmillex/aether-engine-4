@@ -1,5 +1,5 @@
 // Core engine
-export { Engine, type EngineConfig } from './core/index.js';
+export { Engine, type EngineConfig, Scene, type SceneConfig } from './core/index.js';
 
 // ECS system
 export { 
@@ -9,7 +9,12 @@ export {
   type Component,
   type ComponentConstructor,
   World,
-  System
+  type QueryBuilder,
+  type WorldEntityBuilder,
+  System,
+  type SystemDependencies,
+  EntityBuilder,
+  entity
 } from './ecs/index.js';
 
 // Math library
@@ -53,3 +58,9 @@ export {
 export {
   InputManager
 } from './input/index.js';
+
+export {
+  PerformanceMonitor,
+  EngineBenchmark,
+  ObjectPool
+} from './performance/index.js';

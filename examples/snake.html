@@ -103,6 +103,21 @@
             text-align: center;
             opacity: 0.7;
         }
+        
+        .api-info {
+            background: rgba(0,255,136,0.1);
+            border: 1px solid #00ff88;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px;
+            max-width: 800px;
+            font-size: 0.9em;
+        }
+        
+        .api-info h4 {
+            color: #00ff88;
+            margin: 0 0 10px 0;
+        }
     </style>
 </head>
 <body>
@@ -131,20 +146,23 @@
     </div>
     
     <div class="footer">
-        <p>Built with <strong>Aether Engine</strong> - Geometric Algebra Game Engine</p>
+        <p>Built with <strong>Aether Engine</strong></p>
     </div>
 
     <script type="module">
         import { 
             Engine, 
-            createEntity, 
+            Scene,
+            entity,
             Transform, 
             Sprite, 
             Velocity,
             Camera,
             System,
             Vector3,
-            Vector2
+            Vector2,
+            MovementSystem,
+            RenderSystem
         } from '../dist/index.js';
 
         // Game constants
@@ -165,20 +183,72 @@
             nextDirection: { x: 1, y: 0 }
         };
 
-        // Initialize engine
+        // Initialize engine with scene
         const canvas = document.getElementById('gameCanvas');
-        const engine = new Engine({ canvas });
+        const engine = new Engine({ 
+            canvas,
+            initialScene: {
+                name: 'game',
+                systems: [
+                    new MovementSystem(),
+                    new RenderSystem(null) // Will be set after engine creation
+                ]
+            }
+        });
+
+        // Get world and scene references
+        const world = engine.getWorld();
+        const scene = engine.getCurrentScene();
+
+        // Set up the render system with the engine's renderer
+        const renderSystem = scene.getSystem('RenderSystem');
+        if (renderSystem) {
+            scene.removeSystem('RenderSystem');
+            scene.addSystem(new RenderSystem(engine.getRenderer()));
+        }
 
         // Game entities
         let snakeSegments = [];
         let foodEntity = null;
         let cameraEntity = null;
 
-        // Snake System - handles snake movement and game logic
+        // Event-driven game events
+        const GAME_EVENTS = {
+            FOOD_EATEN: 'food-eaten',
+            SNAKE_MOVED: 'snake-moved',
+            GAME_OVER: 'game-over',
+            SCORE_CHANGED: 'score-changed',
+            SNAKE_GREW: 'snake-grew'
+        };
+
+        // Enhanced Snake System using new APIs
         class SnakeSystem extends System {
             constructor() {
                 super();
                 this.name = 'SnakeSystem';
+                this.dependencies = ['InputSystem']; // System dependencies
+                this.setupEventListeners();
+                this.setupReactiveQueries();
+            }
+
+            setupEventListeners() {
+                // Listen to game events using the new event system
+                world.on(GAME_EVENTS.FOOD_EATEN, (data) => {
+                    console.log(`Food eaten! Score: ${data.score}`);
+                    this.handleFoodEaten(data);
+                });
+
+                world.on(GAME_EVENTS.SNAKE_GREW, (data) => {
+                    console.log(`Snake grew! Length: ${data.length}`);
+                });
+            }
+
+            setupReactiveQueries() {
+                // Subscribe to snake segment changes using reactive queries
+                const snakeQueryKey = 'snake-segments';
+                world.subscribeToQuery(snakeQueryKey, (entities) => {
+                    console.log(`Snake segments updated: ${entities.length} segments`);
+                });
             }
 
             update(world, deltaTime) {
@@ -196,8 +266,15 @@
                 // Update direction
                 gameState.direction = { ...gameState.nextDirection };
 
-                // Get current head position
-                const headTransform = world.getComponent(snakeSegments[0], Transform);
+                // Use new query builder API to get snake head
+                const snakeHead = world.query()
+                    .with(Transform, Sprite)
+                    .execute()
+                    .find(entity => entity === snakeSegments[0]);
+
+                if (!snakeHead) return;
+
+                const headTransform = world.getComponent(snakeHead, Transform);
                 const headPos = {
                     x: Math.round(headTransform.position.x / GRID_SIZE),
                     y: Math.round(headTransform.position.y / GRID_SIZE)
@@ -216,21 +293,26 @@
                     return;
                 }
 
-                // Check self collision
-                for (const segment of snakeSegments) {
-                    const segmentTransform = world.getComponent(segment, Transform);
-                    const segmentPos = {
-                        x: Math.round(segmentTransform.position.x / GRID_SIZE),
-                        y: Math.round(segmentTransform.position.y / GRID_SIZE)
-                    };
-                    
-                    if (newHeadPos.x === segmentPos.x && newHeadPos.y === segmentPos.y) {
-                        this.gameOver();
-                        return;
-                    }
+                // Check self collision using query builder
+                const collisionCheck = world.query()
+                    .with(Transform, Sprite)
+                    .execute()
+                    .filter(entity => snakeSegments.includes(entity))
+                    .some(segment => {
+                        const segmentTransform = world.getComponent(segment, Transform);
+                        const segmentPos = {
+                            x: Math.round(segmentTransform.position.x / GRID_SIZE),
+                            y: Math.round(segmentTransform.position.y / GRID_SIZE)
+                        };
+                        return newHeadPos.x === segmentPos.x && newHeadPos.y === segmentPos.y;
+                    });
+
+                if (collisionCheck) {
+                    this.gameOver();
+                    return;
                 }
 
-                // Check food collision
+                // Check food collision using query builder
                 const foodTransform = world.getComponent(foodEntity, Transform);
                 const foodPos = {
                     x: Math.round(foodTransform.position.x / GRID_SIZE),
@@ -245,7 +327,7 @@
                     return { x: transform.position.x, y: transform.position.y };
                 });
 
-                // Update head position first
+                // Update head position using enhanced Transform API
                 const newHeadTransform = headTransform.setPosition(
                     new Vector3(newHeadPos.x * GRID_SIZE, newHeadPos.y * GRID_SIZE, 0)
                 );
@@ -260,20 +342,40 @@
                     world.addComponent(snakeSegments[i], newTransform);
                 }
 
+                // Emit snake moved event
+                world.emit(GAME_EVENTS.SNAKE_MOVED, { 
+                    headPosition: newHeadPos,
+                    segments: snakeSegments.length 
+                });
+
                 if (ateFood) {
-                    // Increase score
-                    gameState.score += 10;
-                    updateScoreDisplay();
-
-                    // Increase speed slightly
-                    gameState.speed = Math.max(50, gameState.speed - 2);
-
-                    // Add new segment at the tail position
-                    this.addSnakeSegment(world, oldPositions[oldPositions.length - 1]);
-
-                    // Spawn new food
-                    this.spawnFood(world);
+                    // Emit food eaten event
+                    world.emit(GAME_EVENTS.FOOD_EATEN, { 
+                        position: foodPos,
+                        score: gameState.score + 10,
+                        oldTailPosition: oldPositions[oldPositions.length - 1]
+                    });
                 }
+            }
+
+            handleFoodEaten(data) {
+                // Increase score
+                gameState.score = data.score;
+                world.emit(GAME_EVENTS.SCORE_CHANGED, { score: gameState.score });
+
+                // Increase speed slightly
+                gameState.speed = Math.max(50, gameState.speed - 2);
+
+                // Add new segment at the tail position
+                this.addSnakeSegment(world, data.oldTailPosition);
+
+                // Spawn new food
+                this.spawnFood(world);
+
+                // Emit snake grew event
+                world.emit(GAME_EVENTS.SNAKE_GREW, { 
+                    length: snakeSegments.length 
+                });
             }
 
             addSnakeSegment(world, position = null) {
@@ -286,21 +388,12 @@
                     segmentPosition = tailTransform.position;
                 }
                 
-                const segmentEntity = createEntity();
-                const segmentTransform = new Transform(
-                    segmentPosition,
-                    undefined,
-                    new Vector3(GRID_SIZE - 2, GRID_SIZE - 2, 1)
-                );
-                const segmentSprite = new Sprite(
-                    'default_white',
-                    new Vector2(1, 1),
-                    Vector2.zero(),
-                    [0, 0.8, 0, 1] // Green
-                );
-
-                world.addComponent(segmentEntity, segmentTransform);
-                world.addComponent(segmentEntity, segmentSprite);
+                // Use enhanced entity builder API
+                const segmentEntity = world.entity()
+                    .with(Transform.at(segmentPosition.x, segmentPosition.y, 0)
+                        .setScale(new Vector3(GRID_SIZE - 2, GRID_SIZE - 2, 1)))
+                    .with(Sprite.withTint('default_white', 0, 0.8, 0, 1))
+                    .build();
                 
                 snakeSegments.push(segmentEntity);
             }
@@ -309,85 +402,94 @@
                 let foodPos;
                 let validPosition = false;
 
-                // Find empty position
+                // Find empty position using query builder
                 while (!validPosition) {
                     foodPos = {
                         x: Math.floor(Math.random() * GRID_WIDTH),
                         y: Math.floor(Math.random() * GRID_HEIGHT)
                     };
 
-                    validPosition = true;
-                    for (const segment of snakeSegments) {
-                        const segmentTransform = world.getComponent(segment, Transform);
-                        const segmentPos = {
-                            x: Math.round(segmentTransform.position.x / GRID_SIZE),
-                            y: Math.round(segmentTransform.position.y / GRID_SIZE)
-                        };
-                        
-                        if (foodPos.x === segmentPos.x && foodPos.y === segmentPos.y) {
-                            validPosition = false;
-                            break;
-                        }
-                    }
+                    // Use query builder to check if position is occupied
+                    const occupiedPositions = world.query()
+                        .with(Transform, Sprite)
+                        .execute()
+                        .filter(entity => snakeSegments.includes(entity))
+                        .map(segment => {
+                            const transform = world.getComponent(segment, Transform);
+                            return {
+                                x: Math.round(transform.position.x / GRID_SIZE),
+                                y: Math.round(transform.position.y / GRID_SIZE)
+                            };
+                        });
+
+                    validPosition = !occupiedPositions.some(pos => 
+                        pos.x === foodPos.x && pos.y === foodPos.y
+                    );
                 }
 
-                // Update food position
-                const newFoodTransform = new Transform(
-                    new Vector3(foodPos.x * GRID_SIZE, foodPos.y * GRID_SIZE, 0),
-                    undefined,
-                    new Vector3(GRID_SIZE - 4, GRID_SIZE - 4, 1)
-                );
+                // Update food position using enhanced Transform API
+                const newFoodTransform = Transform.at(
+                    foodPos.x * GRID_SIZE, 
+                    foodPos.y * GRID_SIZE, 
+                    0
+                ).setScale(new Vector3(GRID_SIZE - 4, GRID_SIZE - 4, 1));
+                
                 world.addComponent(foodEntity, newFoodTransform);
             }
 
             gameOver() {
                 gameState.running = false;
                 
-                // Update high score
-                if (gameState.score > gameState.highScore) {
-                    gameState.highScore = gameState.score;
-                    localStorage.setItem('snakeHighScore', gameState.highScore.toString());
-                    document.getElementById('newHighScore').style.display = 'block';
-                } else {
-                    document.getElementById('newHighScore').style.display = 'none';
-                }
-
-                // Show game over screen
-                document.getElementById('finalScore').textContent = gameState.score;
-                document.getElementById('gameOverScreen').style.display = 'block';
-                updateScoreDisplay();
+                // Emit game over event
+                world.emit(GAME_EVENTS.GAME_OVER, { 
+                    finalScore: gameState.score,
+                    isNewHighScore: gameState.score > gameState.highScore
+                });
             }
         }
 
-        // Input System
+        // Enhanced Input System with event-driven architecture
         class InputSystem extends System {
             constructor() {
                 super();
                 this.name = 'InputSystem';
+                this.dependencies = []; // No dependencies
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                // Listen to game events
+                world.on(GAME_EVENTS.GAME_OVER, (data) => {
+                    console.log(`Game Over! Final Score: ${data.finalScore}`);
+                });
             }
 
             update(world, deltaTime) {
                 const inputManager = engine.getInputManager();
 
-                // Movement controls
+                // Movement controls with event emission
                 if (inputManager.isKeyPressed('KeyW') || inputManager.isKeyPressed('ArrowUp')) {
                     if (gameState.direction.y === 0) {
                         gameState.nextDirection = { x: 0, y: -1 };
+                        world.emit('input-direction-changed', { direction: 'up' });
                     }
                 }
                 if (inputManager.isKeyPressed('KeyS') || inputManager.isKeyPressed('ArrowDown')) {
                     if (gameState.direction.y === 0) {
                         gameState.nextDirection = { x: 0, y: 1 };
+                        world.emit('input-direction-changed', { direction: 'down' });
                     }
                 }
                 if (inputManager.isKeyPressed('KeyA') || inputManager.isKeyPressed('ArrowLeft')) {
                     if (gameState.direction.x === 0) {
                         gameState.nextDirection = { x: -1, y: 0 };
+                        world.emit('input-direction-changed', { direction: 'left' });
                     }
                 }
                 if (inputManager.isKeyPressed('KeyD') || inputManager.isKeyPressed('ArrowRight')) {
                     if (gameState.direction.x === 0) {
                         gameState.nextDirection = { x: 1, y: 0 };
+                        world.emit('input-direction-changed', { direction: 'right' });
                     }
                 }
 
@@ -395,22 +497,85 @@
                 if (inputManager.isKeyPressed('Space')) {
                     if (gameState.running) {
                         gameState.paused = !gameState.paused;
+                        world.emit('game-paused', { paused: gameState.paused });
                     }
                 }
 
                 // Restart
                 if (inputManager.isKeyPressed('KeyR')) {
+                    world.emit('game-restart-requested', {});
                     restartGame();
                 }
             }
         }
 
-        // Render System
+        // Enhanced UI System using event system
+        class UISystem extends System {
+            constructor() {
+                super();
+                this.name = 'UISystem';
+                this.dependencies = [];
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                // React to score changes
+                world.on(GAME_EVENTS.SCORE_CHANGED, (data) => {
+                    this.updateScoreDisplay(data.score);
+                });
+
+                // React to game over
+                world.on(GAME_EVENTS.GAME_OVER, (data) => {
+                    this.showGameOver(data);
+                });
+
+                // React to pause events
+                world.on('game-paused', (data) => {
+                    console.log(`Game ${data.paused ? 'paused' : 'resumed'}`);
+                });
+
+                // React to input events
+                world.on('input-direction-changed', (data) => {
+                    console.log(`Direction changed: ${data.direction}`);
+                });
+            }
+
+            update(world, deltaTime) {
+                // UI system doesn't need regular updates, it's event-driven
+            }
+
+            updateScoreDisplay(score) {
+                document.getElementById('score').textContent = score;
+            }
+
+            showGameOver(data) {
+                // Update high score
+                if (data.isNewHighScore) {
+                    gameState.highScore = data.finalScore;
+                    localStorage.setItem('snakeHighScore', gameState.highScore.toString());
+                    document.getElementById('newHighScore').style.display = 'block';
+                } else {
+                    document.getElementById('newHighScore').style.display = 'none';
+                }
+
+                // Show game over screen
+                document.getElementById('finalScore').textContent = data.finalScore;
+                document.getElementById('gameOverScreen').style.display = 'block';
+                this.updateHighScoreDisplay();
+            }
+
+            updateHighScoreDisplay() {
+                document.getElementById('highScore').textContent = gameState.highScore;
+            }
+        }
+
+        // Enhanced Render System using query builder
         class GameRenderSystem extends System {
             constructor(renderer) {
                 super();
                 this.name = 'GameRenderSystem';
                 this.renderer = renderer;
+                this.dependencies = [];
             }
 
             initialize(world) {
@@ -418,6 +583,13 @@
             }
 
             update(world, deltaTime) {
+                // Use query builder to find camera
+                const cameraEntity = world.query()
+                    .with(Camera, Transform)
+                    .first();
+
+                if (!cameraEntity) return;
+
                 const camera = world.getComponent(cameraEntity, Camera);
                 const cameraTransform = world.getComponent(cameraEntity, Transform);
 
@@ -431,8 +603,10 @@
 
                 this.renderer.beginFrame();
 
-                // Render all sprites
-                const spriteEntities = world.getEntitiesWithComponents(Sprite, Transform);
+                // Use query builder to render all sprites
+                const spriteEntities = world.query()
+                    .with(Sprite, Transform)
+                    .execute();
                 
                 const sortedEntities = spriteEntities
                     .map(entity => ({
@@ -471,21 +645,28 @@
             }
         }
 
-        // Initialize game
+        // Initialize game with enhanced APIs
         function initGame() {
-            // Add systems
-            engine.addSystem(new SnakeSystem());
-            engine.addSystem(new InputSystem());
-            engine.addSystem(new GameRenderSystem(engine.getRenderer()));
+            // Add systems with dependencies
+            const snakeSystem = new SnakeSystem();
+            const inputSystem = new InputSystem();
+            const uiSystem = new UISystem();
+            const gameRenderSystem = new GameRenderSystem(engine.getRenderer());
 
-            // Create camera
-            cameraEntity = createEntity();
-            const camera = new Camera();
-            camera.setClearColor(0.1, 0.1, 0.15, 1);
-            const cameraTransform = new Transform();
-            
-            engine.getWorld().addComponent(cameraEntity, camera);
-            engine.getWorld().addComponent(cameraEntity, cameraTransform);
+            // Add systems to engine
+            engine.addSystem(inputSystem);  // Add input system first (dependency)
+            engine.addSystem(snakeSystem);  // Snake system depends on input
+            engine.addSystem(uiSystem);     // UI system for event-driven updates
+            engine.addSystem(gameRenderSystem);
+
+            // Create camera using enhanced entity builder
+            cameraEntity = world.entity()
+                .with(Transform.at(0, 0, 0))
+                .with(new Camera(60, 0.1, 1000, true, [0.1, 0.1, 0.15, 1]))
+                .build();
+
+            // Set up component change tracking
+            setupComponentTracking();
 
             // Initialize snake
             createSnake();
@@ -500,50 +681,47 @@
             startGame();
         }
 
+        function setupComponentTracking() {
+            // Track when transforms are added/removed
+            world.onComponentAdded(Transform, (entity, component) => {
+                console.log(`➕ Transform added to entity ${entity}`);
+            });
+
+            world.onComponentRemoved(Transform, (entity) => {
+                console.log(`➖ Transform removed from entity ${entity}`);
+            });
+
+            // Track when sprites are added/removed
+            world.onComponentAdded(Sprite, (entity, component) => {
+                console.log(`🎨 Sprite added to entity ${entity}`);
+            });
+        }
+
         function createSnake() {
             snakeSegments = [];
             
-            // Create initial snake (3 segments)
+            // Create initial snake using enhanced entity builder
             for (let i = 0; i < 3; i++) {
-                const segmentEntity = createEntity();
-                const segmentTransform = new Transform(
-                    new Vector3((5 - i) * GRID_SIZE, 5 * GRID_SIZE, 0),
-                    undefined,
-                    new Vector3(GRID_SIZE - 2, GRID_SIZE - 2, 1)
-                );
-                
                 // Head is brighter green, body is darker
                 const color = i === 0 ? [0, 1, 0, 1] : [0, 0.8, 0, 1];
-                const segmentSprite = new Sprite(
-                    'default_white',
-                    new Vector2(1, 1),
-                    Vector2.zero(),
-                    color
-                );
-
-                engine.getWorld().addComponent(segmentEntity, segmentTransform);
-                engine.getWorld().addComponent(segmentEntity, segmentSprite);
+                
+                const segmentEntity = world.entity()
+                    .with(Transform.at((5 - i) * GRID_SIZE, 5 * GRID_SIZE, 0)
+                        .setScale(new Vector3(GRID_SIZE - 2, GRID_SIZE - 2, 1)))
+                    .with(Sprite.withTint('default_white', color[0], color[1], color[2], color[3]))
+                    .build();
                 
                 snakeSegments.push(segmentEntity);
             }
         }
 
         function createFood() {
-            foodEntity = createEntity();
-            const foodTransform = new Transform(
-                new Vector3(15 * GRID_SIZE, 10 * GRID_SIZE, 0),
-                undefined,
-                new Vector3(GRID_SIZE - 4, GRID_SIZE - 4, 1)
-            );
-            const foodSprite = new Sprite(
-                'default_white',
-                new Vector2(1, 1),
-                Vector2.zero(),
-                [1, 0, 0, 1] // Red
-            );
-
-            engine.getWorld().addComponent(foodEntity, foodTransform);
-            engine.getWorld().addComponent(foodEntity, foodSprite);
+            // Create food using enhanced entity builder
+            foodEntity = world.entity()
+                .with(Transform.at(15 * GRID_SIZE, 10 * GRID_SIZE, 0)
+                    .setScale(new Vector3(GRID_SIZE - 4, GRID_SIZE - 4, 1)))
+                .with(Sprite.withTint('default_white', 1, 0, 0, 1))
+                .build();
         }
 
         function startGame() {
@@ -556,6 +734,11 @@
             gameState.nextDirection = { x: 1, y: 0 };
             
             document.getElementById('gameOverScreen').style.display = 'none';
+            
+            // Emit game started event
+            world.emit('game-started', { initialScore: gameState.score });
+            
+            // Update displays
             updateScoreDisplay();
         }
 
@@ -564,15 +747,24 @@
             document.getElementById('highScore').textContent = gameState.highScore;
         }
 
-        // Global restart function
+        // Global restart function with event emission
         window.restartGame = function() {
-            // Clear existing entities
-            for (const segment of snakeSegments) {
-                engine.getWorld().removeEntity(segment);
+            // Emit restart event
+            world.emit('game-restarting', {});
+            
+            // Clear existing entities using query builder
+            const allGameEntities = world.query()
+                .with(Transform, Sprite)
+                .execute()
+                .filter(entity => entity !== cameraEntity);
+
+            for (const entity of allGameEntities) {
+                world.removeEntity(entity);
             }
-            if (foodEntity) {
-                engine.getWorld().removeEntity(foodEntity);
-            }
+            
+            // Clear snake segments array
+            snakeSegments = [];
+            foodEntity = null;
             
             // Recreate game objects
             createSnake();
@@ -580,14 +772,19 @@
             
             // Restart game
             startGame();
+            
+            // Emit restart completed event
+            world.emit('game-restarted', {});
         };
 
         // Initialize everything
         initGame();
         updateScoreDisplay();
 
-        console.log('🐍 Snake Game loaded successfully!');
-        console.log('Use WASD or arrow keys to move, Space to pause, R to restart');
+        // Set up global event listeners for demonstration
+        world.on('game-started', () => console.log('Game Started!'));
+        world.on('game-restarting', () => console.log('Game Restarting...'));
+        world.on('game-restarted', () => console.log('Game Restarted!'));
     </script>
 </body>
 </html>

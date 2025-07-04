@@ -9,23 +9,41 @@ export class Velocity implements Component {
   readonly type = 'Velocity';
 
   constructor(
-    public linear: Vector3 = Vector3.zero(),
-    public angular: Vector3 = Vector3.zero()
+    public readonly linear: Vector3 = Vector3.zero(),
+    public readonly angular: Vector3 = Vector3.zero()
   ) {}
 
-  setLinear(velocity: Vector3): void {
-    this.linear = velocity;
+  // Factory methods
+  static linear(x: number, y: number, z: number = 0): Velocity {
+    return new Velocity(new Vector3(x, y, z));
   }
 
-  setAngular(velocity: Vector3): void {
-    this.angular = velocity;
+  static angular(x: number, y: number, z: number = 0): Velocity {
+    return new Velocity(Vector3.zero(), new Vector3(x, y, z));
   }
 
-  addLinear(acceleration: Vector3): void {
-    this.linear = this.linear.add(acceleration);
+  static both(linear: Vector3, angular: Vector3): Velocity {
+    return new Velocity(linear, angular);
   }
 
-  addAngular(acceleration: Vector3): void {
-    this.angular = this.angular.add(acceleration);
+  // Immutable update methods
+  withLinear(velocity: Vector3): Velocity {
+    return new Velocity(velocity, this.angular);
+  }
+
+  withAngular(velocity: Vector3): Velocity {
+    return new Velocity(this.linear, velocity);
+  }
+
+  addLinear(acceleration: Vector3): Velocity {
+    return new Velocity(this.linear.add(acceleration), this.angular);
+  }
+
+  addAngular(acceleration: Vector3): Velocity {
+    return new Velocity(this.linear, this.angular.add(acceleration));
+  }
+
+  scale(factor: number): Velocity {
+    return new Velocity(this.linear.scale(factor), this.angular.scale(factor));
   }
 }

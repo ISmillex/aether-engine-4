@@ -1,14 +1,16 @@
 import { System } from '../ecs/system.js';
 import type { World } from '../ecs/world.js';
-import type { Entity } from '../ecs/entity.js';
 import { Transform, Sprite, Camera } from '../components/index.js';
 import type { Renderer } from '../renderer/renderer.js';
 
 /**
- * Render system that interfaces between the ECS world and the OOP renderer.
+ * Enhanced render system that interfaces between the ECS world and the OOP renderer.
+ * Uses advanced querying and optimized rendering pipeline.
  */
 export class RenderSystem extends System {
   readonly name = 'RenderSystem';
+  readonly priority = -100; // Low priority, render last
+  readonly dependencies = { after: ['MovementSystem'] };
 
   constructor(private readonly renderer: Renderer) {
     super();
@@ -20,25 +22,22 @@ export class RenderSystem extends System {
   }
 
   update(world: World, _deltaTime: number): void {
-    // Find active camera (cached lookup)
-    const cameraEntities = world.getEntitiesWithComponents(Camera, Transform);
-    let activeCamera: Entity | undefined;
-    let camera: Camera | undefined;
-    let cameraTransform: Transform | undefined;
+    // Find active camera using query builder
+    const activeCamera = world.query()
+      .with(Camera)
+      .with(Transform)
+      .execute()
+      .find(entity => {
+        const cam = world.getComponent(entity, Camera)!;
+        return cam.active;
+      });
 
-    for (const entity of cameraEntities) {
-      const cam = world.getComponent(entity, Camera)!;
-      if (cam.active) {
-        activeCamera = entity;
-        camera = cam;
-        cameraTransform = world.getComponent(entity, Transform)!;
-        break;
-      }
-    }
-
-    if (!activeCamera || !camera || !cameraTransform) {
+    if (!activeCamera) {
       return; // No active camera, skip rendering
     }
+
+    const camera = world.getComponent(activeCamera, Camera)!;
+    const cameraTransform = world.getComponent(activeCamera, Transform)!;
 
     // Clear screen
     const [r, g, b, a] = camera.clearColor;
@@ -50,8 +49,11 @@ export class RenderSystem extends System {
 
     this.renderer.beginFrame();
 
-    // Performance optimization: Batch component lookups and reduce allocations
-    const spriteEntities = world.getEntitiesWithComponents(Sprite, Transform);
+    // Use query builder for sprite entities
+    const spriteEntities = world.query()
+      .with(Sprite)
+      .with(Transform)
+      .execute();
     
     // Pre-allocate arrays for better performance
     const renderData: Array<{
