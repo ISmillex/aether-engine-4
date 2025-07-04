@@ -1,0 +1,8 @@
+dist/
+node_modules/
+.agent.md
+.agent.local.md
+SNAKE_GAME.md
+PERFORMANCE_OPTIMIZATIONS.md
+COMPLETION_SUMMARY.md
+pnpm-lock.yaml

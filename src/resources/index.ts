@@ -1,0 +1,1 @@
+export { ResourceManager, type Resource } from './resource-manager.js';

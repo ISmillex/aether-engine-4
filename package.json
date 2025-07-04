@@ -1,0 +1,38 @@
+{
+  "name": "aether-engine-4",
+  "version": "1.0.0",
+  "description": "A modern, data-driven 2D/3D game engine built with TypeScript and Geometric Algebra",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "preflight": "pnpm run build && pnpm run test:run && pnpm run lint"
+  },
+  "keywords": [
+    "game-engine",
+    "typescript",
+    "ecs",
+    "geometric-algebra",
+    "webgl"
+  ],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.10.0",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "jsdom": "^23.2.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.15.0",
+    "hono": "^4.8.3"
+  }
+}

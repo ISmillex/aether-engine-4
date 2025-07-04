@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aether Engine - Performance Tests</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 3em;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .test-panel {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .test-panel h3 {
+            margin: 0 0 15px 0;
+            color: #ffd700;
+        }
+        
+        .benchmark-controls {
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .metric {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4ecdc4;
+        }
+        
+        .metric-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        .canvas-container {
+            grid-column: 1 / -1;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        #testCanvas {
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 10px;
+            background: #000;
+        }
+        
+        .results {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .results h4 {
+            color: #ffd700;
+            margin: 0 0 15px 0;
+        }
+        
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .result-item:last-child {
+            border-bottom: none;
+        }
+        
+        .progress {
+            width: 100%;
+            height: 20px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4ecdc4, #44a08d);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .stress-test {
+            grid-column: 1 / -1;
+        }
+        
+        .entity-counter {
+            font-size: 1.2em;
+            margin: 10px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Aether Engine Performance Tests</h1>
+            <p>Comprehensive benchmarking and stress testing suite</p>
+        </div>
+        
+        <div class="test-grid">
+            <div class="test-panel">
+                <h3>🚀 Benchmark Suite</h3>
+                <div class="benchmark-controls">
+                    <button class="btn" id="runBenchmarks">Run All Benchmarks</button>
+                    <button class="btn" id="clearResults">Clear Results</button>
+                </div>
+                
+                <div class="progress">
+                    <div class="progress-bar" id="benchmarkProgress"></div>
+                </div>
+                
+                <div class="results" id="benchmarkResults" style="display: none;">
+                    <h4>📊 Benchmark Results</h4>
+                    <div id="benchmarkData"></div>
+                </div>
+            </div>
+            
+            <div class="test-panel">
+                <h3>📈 Real-time Metrics</h3>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value" id="fps">0</div>
+                        <div class="metric-label">FPS</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="frameTime">0</div>
+                        <div class="metric-label">Frame Time (ms)</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="entities">0</div>
+                        <div class="metric-label">Entities</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="memory">0</div>
+                        <div class="metric-label">Memory (MB)</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="testCanvas" width="800" height="400"></canvas>
+            </div>
+            
+            <div class="test-panel stress-test">
+                <h3>🔥 Stress Test</h3>
+                <div class="entity-counter">
+                    Entities: <span id="entityCount">0</span>
+                </div>
+                <div class="benchmark-controls">
+                    <button class="btn" id="addEntities">Add 100 Entities</button>
+                    <button class="btn" id="add1000Entities">Add 1000 Entities</button>
+                    <button class="btn" id="clearEntities">Clear All</button>
+                    <button class="btn" id="toggleMovement">Toggle Movement</button>
+                </div>
+                <p><em>Add entities to test rendering and system performance under load</em></p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { 
+            Engine,
+            createEntity,
+            Transform,
+            Sprite,
+            Velocity,
+            MovementSystem,
+            RenderSystem,
+            Vector3,
+            Vector2,
+            Camera
+        } from '../dist/index.js';
+        
+        import { PerformanceMonitor, EngineBenchmark } from '../dist/performance/index.js';
+
+        // Initialize engine
+        const canvas = document.getElementById('testCanvas');
+        const engine = new Engine({ canvas });
+        const monitor = new PerformanceMonitor();
+        
+        // Add systems
+        engine.addSystem(new MovementSystem());
+        engine.addSystem(new RenderSystem(engine.getRenderer()));
+        
+        // Create camera
+        const cameraEntity = createEntity();
+        const camera = new Camera();
+        camera.setClearColor(0.05, 0.05, 0.1, 1);
+        engine.getWorld().addComponent(cameraEntity, camera);
+        engine.getWorld().addComponent(cameraEntity, new Transform());
+        
+        // Create default texture
+        engine.getRenderer().createSolidTexture('default_white', 1, 1, [1, 1, 1, 1]);
+        
+        // Test entities
+        let testEntities = [];
+        let movementEnabled = true;
+        
+        // Performance monitoring
+        let lastMetricsUpdate = 0;
+        const metricsUpdateInterval = 100; // Update every 100ms
+        
+        // Custom system for performance monitoring
+        class PerformanceSystem {
+            constructor() {
+                this.name = 'PerformanceSystem';
+            }
+            
+            update(world, deltaTime) {
+                monitor.startFrame();
+                
+                const now = performance.now();
+                if (now - lastMetricsUpdate > metricsUpdateInterval) {
+                    this.updateMetrics(world);
+                    lastMetricsUpdate = now;
+                }
+                
+                monitor.endFrame();
+            }
+            
+            updateMetrics(world) {
+                const metrics = monitor.getMetrics();
+                monitor.updateEntityCount(world.getEntityCount());
+                
+                document.getElementById('fps').textContent = metrics.fps.toString();
+                document.getElementById('frameTime').textContent = metrics.frameTime.toFixed(2);
+                document.getElementById('entities').textContent = world.getEntityCount().toString();
+                document.getElementById('entityCount').textContent = testEntities.length.toString();
+                
+                if (metrics.memoryUsage) {
+                    document.getElementById('memory').textContent = metrics.memoryUsage.toFixed(1);
+                }
+            }
+        }
+        
+        engine.addSystem(new PerformanceSystem());
+        
+        // Entity management
+        function addEntities(count) {
+            for (let i = 0; i < count; i++) {
+                const entity = createEntity();
+                
+                const transform = new Transform(
+                    new Vector3(
+                        Math.random() * 780 + 10,
+                        Math.random() * 380 + 10,
+                        0
+                    ),
+                    undefined,
+                    new Vector3(8, 8, 1)
+                );
+                
+                const sprite = new Sprite(
+                    'default_white',
+                    Vector2.one(),
+                    Vector2.zero(),
+                    [Math.random(), Math.random(), Math.random(), 0.8]
+                );
+                
+                const velocity = new Velocity(
+                    new Vector3(
+                        (Math.random() - 0.5) * 100,
+                        (Math.random() - 0.5) * 100,
+                        0
+                    )
+                );
+                
+                engine.getWorld().addComponent(entity, transform);
+                engine.getWorld().addComponent(entity, sprite);
+                
+                if (movementEnabled) {
+                    engine.getWorld().addComponent(entity, velocity);
+                }
+                
+                testEntities.push(entity);
+            }
+        }
+        
+        function clearEntities() {
+            for (const entity of testEntities) {
+                engine.getWorld().removeEntity(entity);
+            }
+            testEntities = [];
+        }
+        
+        function toggleMovement() {
+            movementEnabled = !movementEnabled;
+            
+            for (const entity of testEntities) {
+                if (movementEnabled) {
+                    const velocity = new Velocity(
+                        new Vector3(
+                            (Math.random() - 0.5) * 100,
+                            (Math.random() - 0.5) * 100,
+                            0
+                        )
+                    );
+                    engine.getWorld().addComponent(entity, velocity);
+                } else {
+                    engine.getWorld().removeComponent(entity, Velocity);
+                }
+            }
+            
+            document.getElementById('toggleMovement').textContent = 
+                movementEnabled ? 'Disable Movement' : 'Enable Movement';
+        }
+        
+        // Benchmark functionality
+        async function runBenchmarks() {
+            const runButton = document.getElementById('runBenchmarks');
+            const progressBar = document.getElementById('benchmarkProgress');
+            const resultsDiv = document.getElementById('benchmarkResults');
+            const dataDiv = document.getElementById('benchmarkData');
+            
+            runButton.disabled = true;
+            runButton.textContent = 'Running...';
+            resultsDiv.style.display = 'block';
+            
+            try {
+                const benchmark = new EngineBenchmark();
+                
+                // Simulate progress
+                const tests = [
+                    'Entity Creation',
+                    'Component Operations', 
+                    'System Performance',
+                    'Rendering Performance',
+                    'Memory Usage'
+                ];
+                
+                let progress = 0;
+                const progressStep = 100 / tests.length;
+                
+                dataDiv.innerHTML = '';
+                
+                for (let i = 0; i < tests.length; i++) {
+                    progress += progressStep;
+                    progressBar.style.width = progress + '%';
+                    
+                    // Add small delay to show progress
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+                
+                const results = await benchmark.runBenchmarks();
+                
+                // Display results
+                for (const [key, result] of Object.entries(results)) {
+                    const resultItem = document.createElement('div');
+                    resultItem.className = 'result-item';
+                    resultItem.innerHTML = `
+                        <span>${result.name}</span>
+                        <span>${result.operationsPerSecond.toFixed(0)} ops/sec</span>
+                    `;
+                    dataDiv.appendChild(resultItem);
+                }
+                
+                progressBar.style.width = '100%';
+                
+            } catch (error) {
+                console.error('Benchmark failed:', error);
+                dataDiv.innerHTML = '<div style="color: #ff6b6b;">Benchmark failed. Check console for details.</div>';
+            }
+            
+            runButton.disabled = false;
+            runButton.textContent = 'Run All Benchmarks';
+        }
+        
+        // Event listeners
+        document.getElementById('runBenchmarks').addEventListener('click', runBenchmarks);
+        document.getElementById('clearResults').addEventListener('click', () => {
+            document.getElementById('benchmarkResults').style.display = 'none';
+            document.getElementById('benchmarkProgress').style.width = '0%';
+        });
+        
+        document.getElementById('addEntities').addEventListener('click', () => addEntities(100));
+        document.getElementById('add1000Entities').addEventListener('click', () => addEntities(1000));
+        document.getElementById('clearEntities').addEventListener('click', clearEntities);
+        document.getElementById('toggleMovement').addEventListener('click', toggleMovement);
+        
+        // Start with some entities
+        addEntities(50);
+        
+        // Start the engine
+        engine.start();
+        
+        console.log('🚀 Performance test suite loaded!');
+        console.log('- Run benchmarks to test engine performance');
+        console.log('- Add entities to stress test the system');
+        console.log('- Monitor real-time metrics');
+    </script>
+</body>
+</html>
